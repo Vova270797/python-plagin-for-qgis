@@ -192,4 +192,11 @@ class MuftInfo:
 
     def run(self):
         # Simply activate our tool
+        mc = self.iface.mapCanvas()
+
+        for layer in mc.layers():
+            if layer.type() == layer.VectorLayer:
+                layer.removeSelection()
+
+        mc.refresh()
         self.iface.mapCanvas().setMapTool(self.nearestFeatureMapTool)

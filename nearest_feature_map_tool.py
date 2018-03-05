@@ -22,6 +22,9 @@ from PIL import ImageQt
 from StringIO import StringIO
 import qgis.analysis
 import os
+
+LIST_LAYERS = [u"Топологія КТБ"]
+TEST_URL = 'https://10.112.129.171'
 #Class of window that appear when we click on CTV
 class ScrollArea( QScrollArea):
     def __init__(self, parent=None):
@@ -238,6 +241,7 @@ class mainWindow(QMainWindow):
         self.toolbar = self.addToolBar('Help')
         self.toolbar.addAction(self.help)
         self.Picture = QLabel()
+        self.Picture.setAlignment(Qt.AlignCenter)
         self.scroll = QScrollArea()
         self.childrenMenu = QMenu(self)
         self.childrenMenu.setStyleSheet("QMenu::item:selected {border-color: darkblue;background: rgba(100, 100, 100, 150);}")
@@ -303,7 +307,6 @@ class mainWindow(QMainWindow):
         self.widget.painter = QPainter(self.widget._im)
         if flag:
             self.widget.conn_array.append(currentConn)
-            print (self.widget.conn_array)
             self.widget.painter.drawLine(85,20+self.widget.currentRectLeft*20+self.widget.currentNumberLeft*180,605,35+self.widget.currentRectRight*20+180*self.widget.currentNumberRight)
         self.widget.update()
         self.widget.painter.end()
@@ -367,7 +370,6 @@ class mainWindow(QMainWindow):
         painter.end()
         self.widget.paintScene(self.widget.leftArray,self.widget.rightArray)
 
-        print self.widget.leftArray
     def saveImageSlot(self):
         tmp = QFileDialog.getSaveFileName(self,"Save File","/home/untitled.png","Images (*.png *.xpm *.jpg)")
         self.Picture.pixmap().save(tmp)
@@ -443,6 +445,7 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
     def __init__(self, canvas):
         self.canvas = canvas
         self.wnd = mainWindow()
+
         QgsMapToolIdentify.__init__(self, canvas)
         self.cursor = QCursor(Qt.WhatsThisCursor)
         self.ctv_all=[]
@@ -450,9 +453,9 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
         self.zoomArray={}
         self.counterOfZoom=None
         self.already_connected = True
-        self.vguhImage = QPixmap(":/plugins/MuftInfo/vguh.png")
+        self.empty_info_image = QPixmap(":/plugins/MuftInfo/patrik.png")
         #nammme = u"Топологія КТБ"
-        nammme = u"вузли топології КТБ"
+        nammme = LIST_LAYERS[0]
         l = QgsMapLayerRegistry.instance().mapLayersByName(nammme)
         def bla0(i):
             try:
@@ -500,7 +503,7 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
 
 
     def itemSearch(self,c_p):
-        self.counterOfZoom = 1
+        self.counterOfZoom = 8
         if self.workLayer == 1:
             for i in self.ctv_all:
                 if i.attribute("cubic_code")==c_p and i.attribute("cubic_ou_name")!="":
@@ -548,18 +551,25 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
         doc.print_(printer)
 
     def ZoomInEvent(self):
-        if self.counterOfZoom<5:
+        if self.counterOfZoom == 1:
+            self.wnd.plus.setDisabled(False)
+        if self.counterOfZoom<8:
             self.counterOfZoom+=1
-            h = self.wnd.Picture.pixmap().height()
-            w = self.wnd.Picture.pixmap().width()
             self.wnd.Picture.setPixmap(self.zoomArray[self.currentImage][self.counterOfZoom])
+        else:
+            self.wnd.minus.setDisabled(True)
+
+
+
 
     def ZoomOutEvent(self):
+        if self.counterOfZoom == 8:
+            self.wnd.minus.setDisabled(False)
         if self.counterOfZoom>1:
             self.counterOfZoom-=1
-            h = self.wnd.Picture.pixmap().height()
-            w = self.wnd.Picture.pixmap().width()
             self.wnd.Picture.setPixmap(self.zoomArray[self.currentImage][self.counterOfZoom])
+        else:
+            self.wnd.plus.setDisabled(True)
 
     def fileListVar(self,item):
         if item!= None and (item.text()[-4:]==".jpg" or item.text()[-4:]==".png" or item.text()[-4:]==".JPG" or item.text()[-4:]==".PNG"):
@@ -577,8 +587,9 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
             self.wnd.scroll.horizontalScrollBar().setValue(75)
             self.wnd.scroll.verticalScrollBar().setValue(75)
 
+
     def pic(self):
-        self.wnd.Picture.setPixmap(self.vguhImage)
+        self.wnd.Picture.setPixmap(self.empty_info_image)
         city = None
         for item in QgsMapLayerRegistry.instance().mapLayers():
             if 'buildings' in item:
@@ -589,9 +600,18 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
             content = f.readlines()
         for line in content:
             if ("datasource" in line) & ("host" in line) &("port" in line) & ("user" in line):
-                #print line
                 list_properties = line.split(" ")
                 break
+
+        count = 0
+        for prop in list_properties:
+            if count != 2:
+                if 'user' in prop:
+                    username = prop.split('=')[1]
+                    count += 1
+                elif 'password' in prop:
+                    password = prop.split('=')[1]
+                    count += 1
 
         def searching(i):
             if "'" in i:
@@ -623,12 +643,15 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                        for i, value in enumerate(row)) for row in cur.fetchall()]
             cur.connection.close()
             return (r[0] if r else None) if one else r
-        if self.results[0].mLayer.name()==u"вузли топології КТБ":
+
+
+        if self.results[0].mLayer.name()==LIST_LAYERS[0]:
             self.workLayer = 1
             my_query = query_db("SELECT json_data FROM "+city+"."+city+"_ctv_topology where cubic_code ="+"'"+str(self.chosen_item)+"'")
         elif self.results[0].mLayer.name()==u"Колодязі КК":
             self.workLayer = 2
             my_query = query_db("SELECT json_data FROM "+city+"."+city+"_cable_channel_pits where pit_id ="+"'"+str(self.chosen_item)+"'")
+
         self.wnd.fileList.clear()
         self.zoomArray.clear()
         self.wnd.printerMenu.clear()
@@ -640,11 +663,12 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
         self.wnd.left.setDisabled(False)
         self.wnd.right.setDisabled(False)
         if not(my_query == None or my_query == 'NULL' or my_query == False or my_query[0]['json_data']==None):
-            self.wnd.plus.setDisabled(False)
-            self.wnd.minus.setDisabled(False)
+            self.wnd.plus.setDisabled(True)
+            self.wnd.minus.setDisabled(True)
             self.wnd.printer.setDisabled(False)
             json_acceptable_string = my_query[0]['json_data'].replace("'", "\"")
             dict_info = json.loads(json_acceptable_string)
+            dict_info['archive_link'] = TEST_URL + dict_info["archive_link"][22:]
             pic = dict_info["archive_link"]
             cubic_code = dict_info["id"]
             self.parents=[]
@@ -662,12 +686,12 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                 self.children.extend(dict_info["children"])
             else:
                 self.children.append(dict_info["children"])
-            username = "testuser"
-            password = "gistest"
+
             pic_arr = []
             pic_name_arr = []
             url = dict_info["archive_link"]
-            self.wnd.Picture.setPixmap(self.vguhImage)
+            self.wnd.Picture.setPixmap(self.empty_info_image)
+
             try:
                 fl = dict_info["file_names"]
                 for i in fl:
@@ -677,7 +701,9 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                         pic_name = unicode(pic_name)
                         pic_name_arr.append(pic_name)
                         pic = url + pic_name
+
                         pic_arr.append(pic)
+
                 for j in range(len(pic_arr)):
                     response = requests.get(pic_arr[j], auth=(username, password), verify=False)
                     re = str(response)
@@ -688,17 +714,23 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                         pixmap = QPixmap.fromImage(pyqt_image)
                         self.wnd.Picture.setPixmap(pixmap)
                         self.zoomArray[pic_name_arr[j]] = []
-                        for i in range(6):
+                        h = self.wnd.Picture.pixmap().height()
+                        w = self.wnd.Picture.pixmap().width()
+
+                        for i in range(9):
                             self.zoomArray[pic_name_arr[j]].append(i)
-                        for i in range(5):
-                            h = self.wnd.Picture.pixmap().height()
-                            w = self.wnd.Picture.pixmap().width()
-                            self.zoomArray[pic_name_arr[j]][5-i] = self.wnd.Picture.pixmap().scaled(w-w*i*0.2, h-h*i*0.2,Qt.IgnoreAspectRatio,Qt.SmoothTransformation)
+                            self.zoomArray[pic_name_arr[j]][i] = self.wnd.Picture.pixmap().scaled(w-w*i*0.1, h-h*i*0.1,Qt.IgnoreAspectRatio,Qt.SmoothTransformation)
+
+                        self.wnd.setGeometry(200,200,550 + self.zoomArray[pic_name_arr[0]][8].width(), 500)
                         self.wnd.scroll.setWidget(self.wnd.Picture)
+
                         self.wnd.scroll.horizontalScrollBar().setValue(75)
                         self.wnd.scroll.verticalScrollBar().setValue(75)
+
+
             except KeyError:
-                self.wnd.Picture.setPixmap(self.vguhImage)
+                self.wnd.Picture.setPixmap(self.empty_info_image)
+                self.wnd.scroll.setWidget(self.wnd.Picture)
                 self.wnd.printer.setDisabled(True)
                 self.wnd.plus.setDisabled(True)
                 self.wnd.minus.setDisabled(True)
@@ -755,15 +787,17 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                 self.wnd.right.setDisabled(True)
             try:
                 self.wnd.plus.setDisabled(False)
-                self.wnd.minus.setDisabled(False)
+                self.wnd.minus.setDisabled(True)
                 self.wnd.printer.setDisabled(False)
                 self.currentImage = pic_name_arr[0]
-                self.wnd.Picture.setPixmap(self.zoomArray[pic_name_arr[0]][1])
+                self.wnd.Picture.setPixmap(self.zoomArray[pic_name_arr[0]][8])
+                self.wnd.setGeometry(200,200,550 + self.zoomArray[pic_name_arr[0]][8].width(), 500)
             except IndexError:
                 self.wnd.printer.setDisabled(True)
                 self.wnd.plus.setDisabled(True)
                 self.wnd.minus.setDisabled(True)
-                self.wnd.Picture.setPixmap(self.vguhImage)
+                self.wnd.Picture.setPixmap(self.empty_info_image)
+                self.wnd.setGeometry(200,200,530 + self.empty_info_image.width(), 500)
 
             for i in range(30):
                 try:
@@ -778,7 +812,8 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
             self.wnd.plus.setDisabled(True)
             self.wnd.minus.setDisabled(True)
             self.wnd.printer.setDisabled(True)
-            self.wnd.Picture.setPixmap(self.vguhImage)
+            self.wnd.Picture.setPixmap(self.empty_info_image)
+            self.wnd.setGeometry(200,200,530 + self.empty_info_image.width(), 500)
     def canvasReleaseEvent(self, mouseEvent):
         """
         Each time the mouse is clicked on the map canvas, perform
@@ -789,11 +824,14 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                 Keep track of the layer id and id of the closest feature
             Select the id of the closes feature
         """
-        namme = u"вузли топології КТБ"
+
+
+        namme = LIST_LAYERS[0]
         namme1 = u"Колодязі КК"
         q=QgsMapLayerRegistry.instance().mapLayersByName(namme)
-        q1=QgsMapLayerRegistry.instance().mapLayersByName(namme1)
-        q.extend(q1)
+        #q1=QgsMapLayerRegistry.instance().mapLayersByName(namme1)
+        #q.extend(q1)
+
         self.canvas.setSelectionColor(QColor("orange") )
         check = True
         try:
@@ -806,13 +844,14 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
             self.wnd.childrenMenu.triggered.connect(self.childrenEvent)
             self.wnd.parentsMenu.triggered.connect(self.parentsEvent)
             self.wnd.printerMenu.triggered.connect(self.Print)
-            self.wnd.plus.triggered.connect(self.ZoomInEvent)
-            self.wnd.minus.triggered.connect(self.ZoomOutEvent)
+            self.wnd.plus.triggered.connect(self.ZoomOutEvent)
+            self.wnd.minus.triggered.connect(self.ZoomInEvent)
             self.wnd.fileList.itemClicked.connect(self.fileListVar)
             self.wnd.fileList.currentItemChanged.connect(self.fileListVar)
-            self.counterOfZoom = 1
+
+            self.counterOfZoom = 8
             self.already_connected = False
-        if check and self.results[0].mLayer.name()==u"вузли топології КТБ":
+        if check and self.results[0].mLayer.name()==LIST_LAYERS[0]:
             self.workLayer = 1
             if len(self.results)>0 and (self.results[0].mFeature.attribute("cubic_name")==u"Кросс-муфта" or self.results[0].mFeature.attribute("cubic_name")==u"Магистральный распределительный узел" or self.results[0].mFeature.attribute("cubic_name")==u"Оптический узел" or self.results[0].mFeature.attribute("cubic_name") == u"Оптичний приймач" or self.results[0].mFeature.attribute("cubic_name") == u"Передатчик оптический"):
                 i=self.results[0].mFeature
