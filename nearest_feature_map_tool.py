@@ -23,7 +23,7 @@ from StringIO import StringIO
 import qgis.analysis
 import os
 
-LIST_LAYERS = [u"Топологія КТБ"]
+LIST_LAYERS = [u"вузли Топології КТБ"]
 TEST_URL = 'https://10.112.129.171'
 #Class of window that appear when we click on CTV
 class ScrollArea( QScrollArea):
@@ -592,7 +592,7 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
         self.wnd.Picture.setPixmap(self.empty_info_image)
         city = None
         for item in QgsMapLayerRegistry.instance().mapLayers():
-            if 'buildings' in item:
+            if 'ctv_topology' in item:
                 city = item[0:item.find('_')]
 
         project = QgsProject.instance()
@@ -668,7 +668,7 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
             self.wnd.printer.setDisabled(False)
             json_acceptable_string = my_query[0]['json_data'].replace("'", "\"")
             dict_info = json.loads(json_acceptable_string)
-            dict_info['archive_link'] = TEST_URL + dict_info["archive_link"][22:]
+            dict_info['archive_link'] = 'https://'+ final_list[0] + dict_info["archive_link"][22:]
             pic = dict_info["archive_link"]
             cubic_code = dict_info["id"]
             self.parents=[]
