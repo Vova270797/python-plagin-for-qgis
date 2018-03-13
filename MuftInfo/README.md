@@ -9,3 +9,6 @@
 ![](2.png)
 If the information is missing about 'Схема зварок' then some photo is loaded
 ![](3.png)
+Add a new property on the save file operation - the file name is automatically placed according to the name specified in the json file
+![](save2.png)
+![](save5.png)
