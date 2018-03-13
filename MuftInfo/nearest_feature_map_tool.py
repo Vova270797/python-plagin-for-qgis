@@ -263,6 +263,7 @@ class mainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.dock)
 
         self.saveImage = QAction (u"Зберегти схему...",self)
+        self.saveImageName = ''
         self.saveImage.triggered.connect(self.saveImageSlot)
 
         self.saveInfo = QAction (u"Зберегти інформацію...",self)
@@ -371,8 +372,10 @@ class mainWindow(QMainWindow):
         self.widget.paintScene(self.widget.leftArray,self.widget.rightArray)
 
     def saveImageSlot(self):
-        tmp = QFileDialog.getSaveFileName(self,"Save File","/home/untitled.png","Images (*.png *.xpm *.jpg)")
+        tmp = QFileDialog.getSaveFileName(self,"Save File","/home/"+self.saveImageName,"Images (*.png *.xpm *.jpg)")
+
         self.Picture.pixmap().save(tmp)
+
     def saveInfoSlot(self):
         rowdata = []
         for i in range(len(self.names)):
@@ -701,9 +704,8 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                         pic_name = unicode(pic_name)
                         pic_name_arr.append(pic_name)
                         pic = url + pic_name
-
                         pic_arr.append(pic)
-
+                        self.wnd.saveImageName = pic_name
                 for j in range(len(pic_arr)):
                     response = requests.get(pic_arr[j], auth=(username, password), verify=False)
                     re = str(response)
@@ -716,13 +718,19 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                         self.zoomArray[pic_name_arr[j]] = []
                         h = self.wnd.Picture.pixmap().height()
                         w = self.wnd.Picture.pixmap().width()
+                        x = self.wnd.pos().x()
+                        y = self.wnd.pos().y()
 
                         for i in range(9):
                             self.zoomArray[pic_name_arr[j]].append(i)
                             self.zoomArray[pic_name_arr[j]][i] = self.wnd.Picture.pixmap().scaled(w-w*i*0.1, h-h*i*0.1,Qt.IgnoreAspectRatio,Qt.SmoothTransformation)
+                        if x == 0 and y == 0 :
+                            self.wnd.setGeometry(200,200,550 + self.zoomArray[pic_name_arr[0]][8].width(), 500)
+                        else:
+                            self.wnd.setGeometry(x+10,y+38,550 + self.zoomArray[pic_name_arr[0]][8].width(), 500)
 
-                        self.wnd.setGeometry(200,200,550 + self.zoomArray[pic_name_arr[0]][8].width(), 500)
                         self.wnd.scroll.setWidget(self.wnd.Picture)
+
 
                         self.wnd.scroll.horizontalScrollBar().setValue(75)
                         self.wnd.scroll.verticalScrollBar().setValue(75)
@@ -730,6 +738,7 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
 
             except KeyError:
                 self.wnd.Picture.setPixmap(self.empty_info_image)
+                self.wnd.saveImageName = 'emptyInfo.png'
                 self.wnd.scroll.setWidget(self.wnd.Picture)
                 self.wnd.printer.setDisabled(True)
                 self.wnd.plus.setDisabled(True)
@@ -791,13 +800,16 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
                 self.wnd.printer.setDisabled(False)
                 self.currentImage = pic_name_arr[0]
                 self.wnd.Picture.setPixmap(self.zoomArray[pic_name_arr[0]][8])
-                self.wnd.setGeometry(200,200,550 + self.zoomArray[pic_name_arr[0]][8].width(), 500)
+                #self.wnd.setGeometry(200,200,550 + self.zoomArray[pic_name_arr[0]][8].width(), 500)
             except IndexError:
                 self.wnd.printer.setDisabled(True)
                 self.wnd.plus.setDisabled(True)
                 self.wnd.minus.setDisabled(True)
                 self.wnd.Picture.setPixmap(self.empty_info_image)
-                self.wnd.setGeometry(200,200,530 + self.empty_info_image.width(), 500)
+                x = self.wnd.pos().x()
+                y = self.wnd.pos().y()
+                self.wnd.setGeometry(x+10,y+38,530 + self.empty_info_image.width(), 500)
+                self.wnd.saveImageName = 'emptyInfo.png'
 
             for i in range(30):
                 try:
@@ -814,6 +826,7 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
             self.wnd.printer.setDisabled(True)
             self.wnd.Picture.setPixmap(self.empty_info_image)
             self.wnd.setGeometry(200,200,530 + self.empty_info_image.width(), 500)
+            self.wnd.saveImageName = 'emptyInfo.png'
     def canvasReleaseEvent(self, mouseEvent):
         """
         Each time the mouse is clicked on the map canvas, perform
@@ -831,7 +844,8 @@ class NearestFeatureMapTool(QgsMapToolIdentify,):
         q=QgsMapLayerRegistry.instance().mapLayersByName(namme)
         #q1=QgsMapLayerRegistry.instance().mapLayersByName(namme1)
         #q.extend(q1)
-
+        if self.wnd.close():
+            self.wnd.setGeometry(200,200,530 + self.empty_info_image.width(), 500)
         self.canvas.setSelectionColor(QColor("orange") )
         check = True
         try:
