@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SwitchesAlarmsDialogBase</class>
+ <widget class="QDialog" name="SwitchesAlarmsDialogBase">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>987</width>
+    <height>336</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Switches Alarms</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0" colspan="3">
+    <layout class="QVBoxLayout" name="verticalLayout_2">
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="stateLabel">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTreeWidget" name="objectBrowser">
+       <property name="columnCount">
+        <number>8</number>
+       </property>
+       <attribute name="headerDefaultSectionSize">
+        <number>120</number>
+       </attribute>
+       <column>
+        <property name="text">
+         <string>Вулиця</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Дім</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Під'їзд</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>IP адреса</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Модель</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>ping_state</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>traffic_state</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>ports_state</string>
+        </property>
+       </column>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="1" column="0">
+    <spacer name="horizontalSpacer">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>660</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="1" column="1">
+    <widget class="QPushButton" name="stopButton">
+     <property name="text">
+      <string>Стоп</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <widget class="QPushButton" name="startButton">
+     <property name="text">
+      <string>Старт</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
