@@ -27,14 +27,16 @@ from PyQt4.QtGui import *
 # Initialize Qt resources from file resources.py
 import resources
 from qgis.gui import *
+from qgis.gui import QgsRubberBand
 from qgis.core import *
+from qgis.utils import  reloadPlugin
 import psycopg2
 import sched, time
 from threading import Timer
 # Import the code for the dialog
 from SwitchesAlarms_dialog import SwitchesAlarmsDialog
 import os.path
-import time
+import sys
 
 
 class SwitchesAlarms:
@@ -54,6 +56,9 @@ class SwitchesAlarms:
         self.layer = None
         self.data_list = None
         self.check_table_info = None
+        self.stop = False
+        self.timer_restart = 0
+
         # initialize locale
         locale = QSettings().value('locale/userLocale')[0:2]
         locale_path = os.path.join(
@@ -67,7 +72,6 @@ class SwitchesAlarms:
 
             if qVersion() > '4.3.3':
                 QCoreApplication.installTranslator(self.translator)
-
 
         # Declare instance attributes
         self.city = ''
@@ -177,17 +181,8 @@ class SwitchesAlarms:
             text=self.tr(u'Switches Alarms'),
             callback=self.run,
             parent=self.iface.mainWindow())
-            
-    def waiter(self):
-        while self.tt > 0:
-            self.dlg.stateLabel.setText("working..." + str(self.tt) + " sec")
-            time.sleep(1.00)
-            self.tt = self.tt -1
-        self.tt = 0
-        return True
 
     def search_city_name(self):
-
         for item in QgsMapLayerRegistry.instance().mapLayers():
             if '_ctv_topology' in item:
                 self.city = item[0:item.find('_')]
@@ -198,10 +193,10 @@ class SwitchesAlarms:
             content = f.readlines()
 
         for line in content:
-
             if ("datasource" in line) & ("host" in line) &("port" in line) & ("user" in line):
                 list_properties = line.split(" ")
                 break
+
         def searching(i):
             if "'" in i:
                 find = i[i.find("=")+2:len(i)-1:]
@@ -221,23 +216,21 @@ class SwitchesAlarms:
             if "password" in i:
                 final_list.append(searching(i))
         newstr = "dbname='postgres' host="+final_list[0]+" port="+final_list[1]+" user="+final_list[2]+" password="+final_list[3]
+
         def db(database_name=newstr):
             return psycopg2.connect(database_name)
+
         def query_db(query, one=False):
             cur = db().cursor()
             cur.execute(query)
             r = [dict((cur.description[i][0], value) for i, value in enumerate(row)) for row in cur.fetchall()]
-
             cur.connection.close()
             return (r[0] if r else None) if one else r
         self.data_list = query_db("SELECT street, cubic_house_num, doorway, ip_address, switch_model, mon_ping_state,mon_ports_state, mon_traffic_state,mon_ping_ignore FROM "+self.city+"."+self.city+"_switches_working where mon_ping_state is not NULL or mon_traffic_state is not NULL")
         self.check_table_info = query_db("SELECT mon_traffic_state FROM "+self.city+"."+self.city+"_switches_working LIMIT 1 ")
 
     def dbData(self):
-
         self.dlg.objectBrowser.clear()
-        self.dlg.stateLabel.setText('')
-
         for i in self.data_list:
             if i['mon_traffic_state'] == '0':
                 i['mon_traffic_state'] = 'noTRAFF'
@@ -278,24 +271,25 @@ class SwitchesAlarms:
 
             newItem = QTreeWidgetItem([i['street'],i['cubic_house_num'],i['doorway'],i['ip_address'],i['switch_model'],i['mon_ping_state'],i['mon_traffic_state'],i['mon_ports_state']])
             self.dlg.objectBrowser.addTopLevelItem (newItem)
-
-        for lyr in QgsMapLayerRegistry.instance().mapLayers().values():
-            if lyr.name() == "Комутатори".decode('utf-8'):
-                layer = lyr
-                layer.triggerRepaint()
+            self.dlg.stateLabel.setText('work')
 
         '''
         if self.stop:
-            self.dlg.stateLabel.setText("reloading...")
-            self.tt = 295
-            # while self.tt > 0:
-            #     self.dlg.stateLabel.setText("working..." + str(self.tt) + " sec")
-            #     time.sleep(1.0)
-            #     self.tt = self.tt -1.0
+            self.timer= 299
+            while self.timer> 0:
+                sec = ''
+                if int(self.timer%60) < 10 :
+                    sec = '0' + str(int(self.timer%60))
+                else :
+                    sec = str(int(self.timer%60))
+                self.dlg.stateLabel.setText("Time to restart..." + str(int(self.timer//60)) + ":" + sec + " min")
+                time.sleep(1.0)
+                self.timer= self.timer-1.0
 
-            if self.waiter() == True:
-                self.t = Timer(5.0, self.dbData)
-            self.t.start()
+        if self.stop :
+            self.dlg.stateLabel.setText("restart...")
+            self.dlg.objectBrowser.clear()
+            self.startSlot()
         '''
 
     def unload(self):
@@ -309,39 +303,28 @@ class SwitchesAlarms:
         del self.toolbar
 
     def stopSlot(self):
-        self.stop = False
-        self.tt = 0
-        self.dlg.stateLabel.setText("stoped.")
-        #self.dlg.objectBrowser.clear()
-        try:
-            self.t.cancel()
-        except:
-            pass
+        self.dlg.stateLabel.setText('stopped')
+        pass
     def startSlot(self):
-        #self.dlg.stateLabel.setText("working...")
-        self.stop = True
-
-        self.t = Timer(5.0, self.dbData)
-        #self.dlg.stateLabel.setText("working...")
-        self.t.start()
+        pass
 
     def onMapSlot(self,action):
         for i in self.switches_all:
-            if unicode(i["cubic_ip_address"])==unicode(action.text(3)):
+            if unicode(i["ip_address"])==unicode(action.text(3)):
                 ids=[]
                 ids.append(i.id())
+                self.iface.mapCanvas().setSelectionColor(QColor(255, 0, 0, 200))
                 self.layer.setSelectedFeatures(ids)
-                self.iface.mapCanvas().setSelectionColor(QColor('orange'))
                 self.iface.mapCanvas().zoomToSelected(self.layer)
 
-
     def run(self):
+        self.dlg.close()
         self.search_city_name()
         self.dlg.objectBrowser.clear()
         self.dlg.stateLabel.setText('')
 
         for lyr in QgsMapLayerRegistry.instance().mapLayers().values():
-            if '"'+self.city+'"'+"."+'"'+ self.city+"_switches" + '"' in lyr.source():
+            if '"'+self.city+'"'+"."+'"'+ self.city+"_switches_working" + '"' in lyr.source():
                 self.layer = lyr
                 break
 
@@ -349,17 +332,10 @@ class SwitchesAlarms:
             self.surch_data()
             self.switches_all = filter(lambda i: True, self.layer.getFeatures())
             """Run method that performs all the real work"""
-            # show the dialog
-            #self.s = sched.scheduler(time.time(), time.sleep)
-            #s.enter(0, 300)
-
             self.stop = True
-
-            #self.s.run()
             self.dlg.stopButton.clicked.connect(self.stopSlot)
             self.dlg.startButton.clicked.connect(self.dbData)
             self.dlg.objectBrowser.itemClicked.connect(self.onMapSlot)
-
             ##---------------------------------------------------------
             # Run the dialog event loop
             if self.check_table_info == []:
@@ -377,12 +353,12 @@ class SwitchesAlarms:
                 self.msg.setWindowTitle("Message")
                 result = self.msg.exec_()
             else:
+                self.stop = False
+
                 self.dlg.setWindowModality(True)
-                result = self.dlg.exec_()
+
+                result = self.dlg.show()
                 # See if OK was pressed
-                if result:
-                    # Do something useful here - delete the line containing pass and
-                    # substitute with your code.
-                    pass
+
         else :
             pass
